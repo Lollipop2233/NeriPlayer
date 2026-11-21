@@ -98,6 +98,7 @@ internal fun searchSettingsEntries(
 }
 
 internal fun AutoSettingInfo.settingsPage(): SettingsPage? {
+    if (keyName == "lan_listen_nudge_ms") return SettingsPage.ListenTogether
     if (keyName in LyricAppearanceSettingKeys) {
         return SettingsPage.Lyrics
     }
@@ -162,6 +163,7 @@ internal fun AutoSettingInfo.searchTokens(
 }
 
 internal fun AutoSettingInfo.searchTargetId(): String {
+    if (keyName == "lan_listen_nudge_ms") return "manual:lan_listen_together"
     val targetKey = when (keyName) {
         "playback_fade_in_duration_ms",
         "playback_fade_out_duration_ms" -> "playback_fade_in"
@@ -755,6 +757,14 @@ internal fun manualSettingsSearchEntries(resources: Resources): List<SettingsSea
         ),
         entry(
             page = SettingsPage.ListenTogether,
+            titleRes = CoreCommonR.string.lan_title,
+            descriptionRes = CoreCommonR.string.lan_description,
+            id = "lan_listen_together",
+            aliases = listOf("LAN", "Wi-Fi", "局域网", "nudge", "偏移"),
+            targetId = "manual:lan_listen_together"
+        ),
+        entry(
+            page = SettingsPage.ListenTogether,
             titleRes = CoreCommonR.string.listen_together_join_room,
             descriptionRes = CoreCommonR.string.settings_listen_together_join_room_desc,
             id = "listen_together_join_room",
@@ -916,12 +926,13 @@ private val PageSearchAliases = mapOf(
     SettingsPage.TrafficManagement to listOf("traffic", "mobile", "roaming", "data", "liuliang"),
     SettingsPage.Downloads to listOf("download", "downloads", "threads", "parallel", "concurrency", "xiazai"),
     SettingsPage.Backup to listOf("backup", "sync", "github", "webdav", "import", "export", "beifen"),
-    SettingsPage.ListenTogether to listOf("listen together", "room", "worker", "server", "yiqiting"),
+    SettingsPage.ListenTogether to listOf("listen together", "room", "worker", "server", "yiqiting", "LAN", "Wi-Fi", "局域网", "一起听"),
     SettingsPage.About to listOf("about", "version", "debug", "guanyu")
 )
 
 private val SettingSearchAliases = mapOf(
     "coloros_lockscreen_lyrics_enabled" to listOf("ColorOS", "OPlus", "OxygenOS", "root", "shizuku", "锁屏岛", "锁屏歌词"),
+    "live_update_lyric_enabled" to listOf("Live Update", "Live Activity", "Now Bar", "实时活动", "灵动岛", "胶囊", "状态栏歌词"),
     "dynamic_color" to listOf("material you", "monet", "auto color", "quse", "xitongquse"),
     "haptic_feedback_enabled" to listOf("vibration", "touch", "zhendong", "chugan"),
     "playback_service_idle_shutdown_minutes" to listOf("notification", "foreground", "idle", "tuichu"),
@@ -971,6 +982,17 @@ private val SettingSearchAliases = mapOf(
     "always_use_new_tab_style" to listOf("tab", "bottom bar", "new ui"),
     "ui_style" to listOf("style", "theme", "clean", "apple", "ios", "material", "fengge", "jianjie", "风格", "简洁"),
     "liquid_glass_enabled" to listOf("liquid glass", "glass", "refraction", "yetai boli", "液态玻璃"),
+    "enhanced_visual_effects_enabled" to listOf(
+        "visual effects",
+        "ios",
+        "menu",
+        "popup",
+        "dialog blur",
+        "zengqiang shijue",
+        "视觉效果",
+        "弹窗",
+        "菜单"
+    ),
     "predictive_back_preview_enabled" to listOf("predictive back", "back gesture", "preview", "yuce fanhui", "预测性返回"),
     "nowplaying_immersive_mode" to listOf("immersive", "fullscreen", "status bar", "chenjin", "沉浸"),
     "nowplaying_song_title_marquee_enabled" to listOf(

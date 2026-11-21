@@ -1946,6 +1946,7 @@
       "moe.ouom.neriplayer.data.model.lyrics.LyricEntry",
       "moe.ouom.neriplayer.platform.bilibili.api.auth.BiliCookieSource",
       "moe.ouom.neriplayer.platform.bilibili.api.client.BiliClient",
+      "moe.ouom.neriplayer.platform.bilibili.api.client.BiliVideoIdCodec",
       "moe.ouom.neriplayer.platform.bilibili.api.sponsorblock.BiliSponsorBlockClient",
       "moe.ouom.neriplayer.common.logging.NPLogger",
       "moe.ouom.neriplayer.platform.bilibili.auth.*",
@@ -2349,6 +2350,7 @@
       "moe.ouom.neriplayer.data.model.netease.playlist.NeteaseLikeSyncPlan",
       "moe.ouom.neriplayer.data.model.netease.playlist.NeteaseLikeSyncResult",
       "moe.ouom.neriplayer.data.model.netease.playlist.NeteaseRemotePlaylist",
+      "moe.ouom.neriplayer.data.model.netease.cloud.NeteaseCloudPage",
       "moe.ouom.neriplayer.data.model.encyclopedia.EncyclopediaAward",
       "moe.ouom.neriplayer.data.model.encyclopedia.EncyclopediaArtistInfo",
       "moe.ouom.neriplayer.data.model.encyclopedia.EncyclopediaBasicInfo",
@@ -3473,6 +3475,29 @@
       "moe.ouom.neriplayer.data.model.lyrics.LyricsEditorSeed",
       "moe.ouom.neriplayer.data.model.lyrics.LyricsEditorSource",
       "moe.ouom.neriplayer.data.model.lyrics.WordTiming"
+    ],
+    "bridges": {},
+    "descriptor_only": []
+  },
+  {
+    "name": "lan-beatsync-core",
+    "package": "moe.ouom.neriplayer.lanltw.core.",
+    "allowed_classes": [
+      "java.lang.*",
+      "java.io.*",
+      "java.util.*",
+      "java.util.concurrent.*",
+      "kotlin.*",
+      "kotlinx.coroutines.*",
+      "kotlinx.serialization.*",
+      "app.cash.zipline.QuickJs",
+      "moe.ouom.neriplayer.data.model.lan.*",
+      "moe.ouom.neriplayer.data.model.ltw.track.*",
+      "moe.ouom.neriplayer.lanltw.core.*",
+      "moe.ouom.neriplayer.lanltw.protocol.LanCodec",
+      "androidx.annotation.OptIn",
+      "app.cash.zipline.EngineApi",
+      "java.nio.charset.Charset"
     ],
     "bridges": {},
     "descriptor_only": []

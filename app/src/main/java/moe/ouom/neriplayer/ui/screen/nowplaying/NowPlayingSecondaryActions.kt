@@ -89,7 +89,7 @@ import moe.ouom.neriplayer.ui.component.playback.SongMetadataSearchContent
 import moe.ouom.neriplayer.ui.component.overlay.DensityScaledModalBottomSheet as ModalBottomSheet
 import moe.ouom.neriplayer.ui.component.sheet.bottomSheetScrollGuard
 import moe.ouom.neriplayer.ui.feedback.NeriOverlaySnackbarHost
-import moe.ouom.neriplayer.ui.screen.debug.ListenTogetherRoomPanel
+import moe.ouom.neriplayer.ui.component.playback.ListenTogetherPanel
 import moe.ouom.neriplayer.ui.screen.nowplaying.actions.BiliCcSubtitleContent
 import moe.ouom.neriplayer.ui.screen.nowplaying.actions.BiliVideoSkipIntervalsContent
 import moe.ouom.neriplayer.ui.screen.nowplaying.actions.MoreOptionsMainContent
@@ -662,7 +662,7 @@ private fun MoreOptionsPages(
     MoreOptionsMainPage(
         targetState, viewModel, originalSong, queue, isLocalSong,
         currentLyricFontScale, currentTranslationFontScale,
-        currentPlaybackAudioInfo, snackbarHostState, owner, mainActions
+        currentPlaybackAudioInfo, snackbarHostState, owner, mainActions, offlineMode
     )
     MoreOptionsListenTogetherPage(targetState)
     MoreOptionsBiliVideoSkipPage(targetState, actualSong, owner, biliClient)
@@ -820,10 +820,7 @@ private fun MoreOptionsListenTogetherPage(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        ListenTogetherRoomPanel(
-            modifier = Modifier.fillMaxWidth(),
-            showBaseUrlEditor = false
-        )
+        ListenTogetherPanel(Modifier.fillMaxWidth())
     }
 }
 
@@ -1160,12 +1157,13 @@ private fun MoreOptionsMainPage(
     currentPlaybackAudioInfo: PlaybackAudioInfo?,
     snackbarHostState: SnackbarHostState,
     owner: MoreOptionsSheetOwner,
-    actions: MoreOptionsMainActions
+    actions: MoreOptionsMainActions,
+    offlineMode: Boolean
 ) {
     if (targetState != MoreOptionsPage.MAIN) return
     MoreOptionsMainPageContent(
         viewModel, originalSong, queue, isLocalSong, lyricFontScale,
-        translationFontScale, currentPlaybackAudioInfo, snackbarHostState, owner, actions
+        translationFontScale, currentPlaybackAudioInfo, snackbarHostState, owner, actions, offlineMode
     )
 }
 
@@ -1180,7 +1178,8 @@ private fun MoreOptionsMainPageContent(
     currentPlaybackAudioInfo: PlaybackAudioInfo?,
     snackbarHostState: SnackbarHostState,
     owner: MoreOptionsSheetOwner,
-    actions: MoreOptionsMainActions
+    actions: MoreOptionsMainActions,
+    offlineMode: Boolean
 ) {
     MoreOptionsMainContent(
         viewModel = viewModel,
@@ -1203,6 +1202,7 @@ private fun MoreOptionsMainPageContent(
         onShowSongDetails = actions.onShowDetails,
         onShowQualitySwitch = actions.onShowQuality,
         onEnterAlbum = actions.onAlbum,
-        onDismissSheet = actions.onDismissSheet
+        onDismissSheet = actions.onDismissSheet,
+        offlineMode = offlineMode
     )
 }

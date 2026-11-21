@@ -146,6 +146,7 @@ import moe.ouom.neriplayer.ui.component.playback.PlaybackSourceType
 import moe.ouom.neriplayer.ui.component.playback.SleepTimerDialog
 import moe.ouom.neriplayer.ui.component.playback.resolvePlaybackWaiting
 import moe.ouom.neriplayer.ui.component.sheet.bottomSheetScrollGuard
+import moe.ouom.neriplayer.ui.screen.nowplaying.actions.NeteaseCollectionFeedbackHost
 import moe.ouom.neriplayer.ui.feedback.showNeriSnackbar
 import moe.ouom.neriplayer.ui.theme.LocalNeriTargetColorScheme
 import moe.ouom.neriplayer.ui.component.lyrics.resolveLyricSeekPosition
@@ -407,15 +408,6 @@ internal fun hasCachedLocalDownload(song: SongItem): Boolean {
     return hasPublishedManagedDownload(song)
 }
 
-private fun seekToLyricSafely(
-    positionMs: Long,
-    playbackDurationMs: Long,
-    songDurationMs: Long
-) {
-    val knownDurationMs = maxOf(playbackDurationMs, songDurationMs)
-    resolveLyricSeekPosition(positionMs, knownDurationMs)?.let(PlayerManager::seekTo)
-}
-
 @Composable
 private fun NowPlayingImmersivePortraitLayout(
     modifier: Modifier,
@@ -493,12 +485,14 @@ fun NowPlayingScreen(
     val currentSong by PlayerManager.currentSongFlow.collectAsStateWithLifecycle()
     val isPlaying by PlayerManager.isPlayingFlow.collectAsStateWithLifecycle()
     val isPlaybackControlPlaying by PlayerManager.playbackControlPlayingFlow.collectAsStateWithLifecycle()
+    val lanControls = moe.ouom.neriplayer.ui.component.playback.lan.rememberLanPlaybackControls()
     val isAudioRouteMuted by PlayerManager.audioRouteMuteSuppressedFlow.collectAsStateWithLifecycle()
     val usbPlaybackPreparing by PlayerManager.usbExclusivePlaybackPreparingFlow.collectAsStateWithLifecycle()
     val isPlaybackWaiting = resolvePlaybackWaiting(
         playbackRequested = isPlaybackControlPlaying,
         isPlaying = isPlaying,
-        usbPlaybackPreparing = usbPlaybackPreparing
+        usbPlaybackPreparing = usbPlaybackPreparing,
+        lanPreparing = lanControls.preparing
     )
     val shuffleEnabled by PlayerManager.shuffleModeFlow.collectAsStateWithLifecycle()
     val repeatMode by PlayerManager.repeatModeFlow.collectAsStateWithLifecycle()
@@ -530,7 +524,7 @@ fun NowPlayingScreen(
     val listenTogetherSessionManager = remember { AppContainer.listenTogetherSessionManager }
     val listenTogetherSessionState by listenTogetherSessionManager.sessionState.collectAsStateWithLifecycle()
     val listenTogetherRoomState by listenTogetherSessionManager.roomState.collectAsStateWithLifecycle()
-    val playbackProgressSeekEnabled = resolveListenTogetherProgressSeekEnabled(
+    val playbackProgressSeekEnabled = lanControls.permissions.seek && resolveListenTogetherProgressSeekEnabled(
         sessionUserUuid = listenTogetherSessionState.userUuid,
         fallbackRole = listenTogetherSessionState.role,
         roomId = listenTogetherSessionState.roomId,
@@ -538,6 +532,12 @@ fun NowPlayingScreen(
         controllerUserId = listenTogetherRoomState?.controllerUserId,
         allowMemberControl = listenTogetherRoomState?.settings?.allowMemberControl
     )
+    val onLyricSeek: (Long) -> Unit = { positionMs ->
+        if (lanControls.permissions.seek) {
+            val knownDurationMs = maxOf(durationMs, currentSong?.durationMs ?: 0L)
+            resolveLyricSeekPosition(positionMs, knownDurationMs)?.let(PlayerManager::seekTo)
+        }
+    }
     val showProgressQualitySwitch by settingsRepo
         .nowPlayingProgressShowQualitySwitchFlow
         .collectAsStateWithLifecycle(initialValue = true)
@@ -763,7 +763,6 @@ fun NowPlayingScreen(
 
     // 控制音量弹窗的显示
     var showVolumeSheet by remember { mutableStateOf(false) }
-    val volumeSheetState = rememberModalBottomSheetState()
 
     val currentLyricSourceKey = currentSong?.stableKey()
     val lyricsLoadOwner = rememberNowPlayingLyricsLoadOwner(
@@ -1179,13 +1178,7 @@ fun NowPlayingScreen(
                                 onLyricFontScaleChange = onLyricFontScaleChange,
                                 onExitNowPlaying = onNavigateUp,
                                 onNavigateBack = { onShowLyricsScreenChange(false) },
-                                onSeekTo = { position ->
-                                    seekToLyricSafely(
-                                        positionMs = position,
-                                        playbackDurationMs = durationMs,
-                                        songDurationMs = currentSong?.durationMs ?: 0L
-                                    )
-                                },
+                                onSeekTo = onLyricSeek,
                                 progressSeekEnabled = playbackProgressSeekEnabled,
                                 advancedLyricsEnabled = advancedLyricsEnabled,
                                 translatedLyrics = translatedLyrics,
@@ -1325,6 +1318,7 @@ fun NowPlayingScreen(
 
                                         HapticIconButton(
                                             onClick = { PlayerManager.previous() },
+                                            enabled = lanControls.permissions.seek,
                                             modifier = Modifier
                                                 .sharedElement(
                                                     rememberSharedContentState(
@@ -1344,7 +1338,7 @@ fun NowPlayingScreen(
 
                                         HapticFilledIconButton(
                                             onClick = { PlayerManager.togglePlayPause() },
-                                            enabled = !usbPlaybackPreparing,
+                                            enabled = !usbPlaybackPreparing && lanControls.permissions.playPause,
                                             modifier = Modifier
                                                 .nowPlayingLongPress(toggleImmersiveMode)
                                                 .sharedElement(
@@ -1371,6 +1365,7 @@ fun NowPlayingScreen(
 
                                         HapticIconButton(
                                             onClick = { PlayerManager.next() },
+                                            enabled = lanControls.permissions.seek,
                                             modifier = Modifier
                                                 .sharedElement(
                                                     rememberSharedContentState(
@@ -1466,11 +1461,7 @@ fun NowPlayingScreen(
                                 }
                             }
                             val onEmbeddedLyricClick: (LyricEntry) -> Unit = { entry ->
-                                seekToLyricSafely(
-                                    positionMs = entry.startTimeMs,
-                                    playbackDurationMs = durationMs,
-                                    songDurationMs = currentSong?.durationMs ?: 0L
-                                )
+                                onLyricSeek(entry.startTimeMs)
                             }
                             val onEmbeddedLyricLongClick: (LyricEntry) -> Unit = { entry ->
                                 lyricShareInitialLine = entry
@@ -1721,13 +1712,7 @@ fun NowPlayingScreen(
                                         playback = embeddedLyricPlayback,
                                         lowPowerRendering = lowPowerLyricsRendering,
                                         actions = embeddedLyricActions,
-                                        onSeekTo = { position ->
-                                            seekToLyricSafely(
-                                                positionMs = position,
-                                                playbackDurationMs = durationMs,
-                                                songDurationMs = currentSong?.durationMs ?: 0L
-                                            )
-                                        }
+                                        onSeekTo = onLyricSeek
                                     )
                                 }
                                 Box(modifier = contentModifier) {
@@ -1824,15 +1809,8 @@ fun NowPlayingScreen(
                             }
                         }
 
-                        // 音量控制弹窗
                         if (showVolumeSheet) {
-                            ModalBottomSheet(
-                                onDismissRequest = { showVolumeSheet = false },
-                                sheetState = volumeSheetState,
-                                sheetGesturesEnabled = false
-                            ) {
-                                VolumeControlSheetContent()
-                            }
+                            PlaybackOutputSheet(onDismiss = { showVolumeSheet = false })
                         }
 
                         if (artistPickerCandidates.isNotEmpty()) {
@@ -1970,6 +1948,7 @@ fun NowPlayingScreen(
                             )
                         }
                     }
+                    NeteaseCollectionFeedbackHost(nowPlayingViewModel.neteaseCollectionFeedback, snackbarHostState, showMoreOptions)
                     if (coverFlight != null) {
                         NowPlayingLyricsCoverFlightLayer(coverFlight) { modifier ->
                             PassiveNowPlayingCoverImage(coverOwner, coverSource, modifier)

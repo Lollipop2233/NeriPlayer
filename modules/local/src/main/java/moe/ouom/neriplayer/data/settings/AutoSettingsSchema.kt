@@ -864,6 +864,19 @@ object AutoSettingsSchema {
         )
 
         @AutoSetting(
+            key = "enhanced_visual_effects_enabled",
+            type = SettingValueType.Boolean,
+            defaultBoolean = true,
+            order = 18,
+            ui = SettingUiType.Custom
+        )
+        val enhancedVisualEffectsEnabled = autoSetting(
+            titleRes = CoreCommonR.string.settings_enhanced_visual_effects,
+            descriptionRes = CoreCommonR.string.settings_enhanced_visual_effects_desc,
+            icon = AutoSettingIcon.AutoAwesome
+        )
+
+        @AutoSetting(
             key = "advanced_blur_enabled",
             type = SettingValueType.Boolean,
             defaultBoolean = true,
@@ -1147,9 +1160,11 @@ object AutoSettingsSchema {
             type = SettingValueType.Boolean,
             defaultBoolean = false,
             order = 12,
-            ui = SettingUiType.Switch
+            ui = SettingUiType.Custom
         )
-        val liveUpdateLyricEnabled = autoSetting(
+        val liveUpdateLyricEnabled = autoSwitchSetting(
+            key = "live_update_lyric_enabled",
+            defaultValue = false,
             titleRes = CoreCommonR.string.settings_live_update_lyric_enabled,
             descriptionRes = CoreCommonR.string.settings_live_update_lyric_enabled_desc,
             icon = AutoSettingIcon.Subtitles
@@ -1823,6 +1838,18 @@ object AutoSettingsSchema {
         order = 110
     )
     object playback : PlaybackSettingsSection() {
+        @AutoSetting(order = 991, ui = SettingUiType.Custom)
+        val lanHostPermissions = autoIntSetting(
+            key = "lan_listen_host_permissions", defaultValue = 7,
+            titleRes = CoreCommonR.string.lan_permissions, icon = AutoSettingIcon.Bolt
+        )
+
+        @AutoSetting(order = 990, ui = SettingUiType.Custom)
+        val lanNudgeMs = autoIntSetting(
+            key = "lan_listen_nudge_ms", defaultValue = 0,
+            titleRes = CoreCommonR.string.lan_nudge, icon = AutoSettingIcon.Bolt
+        )
+
         val metadata = autoSettingsSection(
             titleRes = CoreCommonR.string.settings_playback,
             descriptionRes = CoreCommonR.string.settings_playback_expand,

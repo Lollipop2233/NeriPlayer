@@ -3,7 +3,6 @@
 )
 
 package moe.ouom.neriplayer.core.player.lifecycle
-
 import moe.ouom.neriplayer.core.player.runtime.stats.PlaybackStatsTracker
 
 import moe.ouom.neriplayer.core.player.session.AppQueueSongIdentity
@@ -73,8 +72,9 @@ import moe.ouom.neriplayer.core.player.network.PlaybackNetworkResumeOwner
 import moe.ouom.neriplayer.core.player.service.notification.FlymeStatusBarLyricSupport
 import moe.ouom.neriplayer.data.model.playback.PlaybackAudioSource
 import moe.ouom.neriplayer.data.model.playback.PlayerEvent
-import moe.ouom.neriplayer.core.player.persistence.RestoredPlayerStateSnapshot
+import moe.ouom.neriplayer.core.player.persistence.RestoredPlayerStatePreload
 import moe.ouom.neriplayer.core.player.persistence.applyRestoredStateSnapshot
+import moe.ouom.neriplayer.core.player.persistence.completeInitialRestoration
 import moe.ouom.neriplayer.core.player.persistence.applyCommittedLyricOverrides
 import moe.ouom.neriplayer.data.sync.store.github.SecureTokenStorage
 import moe.ouom.neriplayer.core.player.persistence.restoreState
@@ -100,11 +100,11 @@ import moe.ouom.neriplayer.core.player.prefetch.prefetchNextGenericTrackUrl
 import moe.ouom.neriplayer.core.player.resolver.youtube.YouTubeSeekRefreshPolicy
 import moe.ouom.neriplayer.core.player.url.currentPlaybackCacheKeyForRecovery
 import moe.ouom.neriplayer.core.player.url.shouldAdvanceAfterStuckTrackEnd
-import moe.ouom.neriplayer.core.player.url.shouldAttemptUrlRefresh
 import moe.ouom.neriplayer.core.player.url.shouldInvalidateCacheAfterPlaybackFailure
 import moe.ouom.neriplayer.core.player.url.shouldInvalidateCacheForPlaybackRecovery
 import moe.ouom.neriplayer.core.player.url.shouldRecoverMissingLocalPlayback
 import moe.ouom.neriplayer.core.player.url.shouldTreatPlaybackFailureAsTrackEnd
+import moe.ouom.neriplayer.core.player.url.tryBeginUrlRefreshAfterPlaybackError
 import moe.ouom.neriplayer.core.player.url.youtubePlaybackRecoveryStrategyForError
 import moe.ouom.neriplayer.core.player.usb.path.UsbExclusiveAudioPathTracker
 import moe.ouom.neriplayer.core.player.usb.recovery.PlayerManagerUsbExclusiveLivenessPort
@@ -290,7 +290,7 @@ internal fun PlayerManager.initializeImpl(
     app: Application,
     maxCacheSize: Long = 1024L * 1024 * 1024,
     startupPlaybackPreferences: PlaybackPreferenceSnapshot? = null,
-    restoredStateSnapshot: RestoredPlayerStateSnapshot? = null
+    restorationPreload: RestoredPlayerStatePreload = RestoredPlayerStatePreload.NeedsFallback
 ) {
     if (!beginInitialization()) return
     val effectiveMaxCacheSize = CacheSizePolicy.normalizeCacheSizeBytes(maxCacheSize)
@@ -300,7 +300,7 @@ internal fun PlayerManager.initializeImpl(
             applyInitialPlaybackPreferences(app, startupPlaybackPreferences)
             initializePlaybackEngine(app, effectiveMaxCacheSize)
             observePlaybackSettings()
-            completeInitialization(restoredStateSnapshot, effectiveMaxCacheSize)
+            completeInitialization(restorationPreload, effectiveMaxCacheSize)
             observeCommittedLyricOverrides()
         } catch (error: Throwable) {
             rollbackInitialization(error, effectiveMaxCacheSize)
@@ -573,7 +573,8 @@ private fun PlayerManager.initializePlaybackEngine(app: Application, effectiveMa
             NPLogger.w(
                 "NERI-PlaybackDecoder",
                 "audio underrun: bufferSize=$bufferSize, bufferMs=$bufferSizeMs, " +
-                    "elapsedSinceFeedMs=$elapsedSinceLastFeedMs"
+                    "elapsedSinceFeedMs=$elapsedSinceLastFeedMs, " +
+                    "bufferedMs=${eventTime.totalBufferedDurationMs}"
             )
         }
 
@@ -727,7 +728,7 @@ private fun PlayerManager.initializePlaybackEngine(app: Application, effectiveMa
                 return
             }
 
-            if (shouldAttemptUrlRefresh(error, currentSong, isOfflineCache)) {
+            if (tryBeginUrlRefreshAfterPlaybackError(error, currentSong, isOfflineCache)) {
                 val youtubeRecoveryStrategy = youtubePlaybackRecoveryStrategyForError(
                     error = error,
                     song = currentSong,
@@ -907,6 +908,7 @@ private fun PlayerManager.initializePlaybackEngine(app: Application, effectiveMa
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (moe.ouom.neriplayer.core.player.lan.LanPlaybackBinding.externalAudio) return
             if (!shouldAcceptPlayerCallback(
                     playbackRequestToken,
                     loadedMediaRequestToken,
@@ -938,6 +940,7 @@ private fun PlayerManager.initializePlaybackEngine(app: Application, effectiveMa
         }
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            if (moe.ouom.neriplayer.core.player.lan.LanPlaybackBinding.externalAudio) return
             if (!shouldExposePlayerCallbackState(
                     playbackRequestToken,
                     loadedMediaRequestToken,
@@ -1549,15 +1552,15 @@ private fun PlayerManager.observeCommittedLyricOverrides() {
 }
 
 private fun PlayerManager.completeInitialization(
-    restoredStateSnapshot: RestoredPlayerStateSnapshot?,
+    restorationPreload: RestoredPlayerStatePreload,
     effectiveMaxCacheSize: Long
 ) {
     audioDeviceRouteOwner.register()
-    if (restoredStateSnapshot != null) {
-        applyRestoredStateSnapshot(restoredStateSnapshot)
-    } else {
-        restoreState()
-    }
+    completeInitialRestoration(
+        restorationPreload = restorationPreload,
+        applySnapshot = { applyRestoredStateSnapshot(it) },
+        restoreState = { restoreState() }
+    )
 
     sleepTimerManager = createSleepTimerManager()
 
@@ -1752,9 +1755,10 @@ internal fun PlayerManager.updateAudioOffloadPreferences(reason: String) {
 }
 
 internal fun PlayerManager.handleAudioBecomingNoisyImpl(): Boolean =
-    audioDeviceRouteOwner.onAudioBecomingNoisy()
+    moe.ouom.neriplayer.core.player.lan.LanPlaybackBinding.interruptOr { audioDeviceRouteOwner.onAudioBecomingNoisy() }
 
 private fun PlayerManager.handleUsbExclusivePlaybackSettingChanged(enabled: Boolean) {
+    if (enabled) moe.ouom.neriplayer.core.player.lan.LanPlaybackBinding.interrupt("OUTPUT")
     usbPlaybackRouteOwner.changeSetting(enabled)
 }
 
